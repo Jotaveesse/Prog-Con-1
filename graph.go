@@ -10,8 +10,8 @@ import (
 )
 
 func main() {
-	makeDiffLineGraph([]int{500000, 1000000, 5000000, 10000000, 50000000}, "diff-chart")
-	makeDiffPercLineGraph([]int{500000, 1000000, 5000000, 10000000, 50000000}, "perc-chart")
+	//makeDiffLineGraph([]int{500000, 1000000, 5000000, 10000000, 50000000}, "diff-chart")
+	//makeDiffPercLineGraph([]int{500000, 1000000, 5000000, 10000000, 50000000}, "perc-chart")
 
 	makeLineGraph(500000, "chart1")
 	makeLineGraph(1000000, "chart2")
@@ -245,7 +245,7 @@ func makeLineGraph(n int, name string) {
 	}
 
 	graph := chart.Chart{
-		Title:      fmt.Sprintf("Comparação para N = %v", n),
+		Title:      fmt.Sprintf("Comparação para N = %.0e", float64(n)),
 		TitleStyle: chart.Style{FontSize: 14},
 		XAxis: chart.XAxis{
 			Name:  "Execução",
@@ -257,6 +257,7 @@ func makeLineGraph(n int, name string) {
 		},
 		Series: []chart.Series{
 			chart.ContinuousSeries{
+				Name: "Sequencial",
 				Style: chart.Style{
 					StrokeColor: chart.DefaultColors[0],
 					StrokeWidth: 2,
@@ -265,6 +266,7 @@ func makeLineGraph(n int, name string) {
 				YValues: yValuesSeq,
 			},
 			chart.ContinuousSeries{
+				Name: "Concorrente",
 				Style: chart.Style{
 					StrokeColor: chart.DefaultColors[1],
 					StrokeWidth: 2,
@@ -273,6 +275,10 @@ func makeLineGraph(n int, name string) {
 				YValues: yValuesConc,
 			},
 		},
+	}
+
+	graph.Elements = []chart.Renderable{
+		chart.Legend(&graph),
 	}
 
 	file, _ := os.Create(name + ".png")
