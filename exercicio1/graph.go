@@ -100,7 +100,7 @@ func makeDiffPercLineGraph(nArr []int, name string) {
 		},
 	}
 
-	file, _ := os.Create(name + ".png")
+	file, _ := os.Create("graphs/" + name + ".png")
 	defer file.Close()
 	graph.Render(chart.PNG, file)
 }
@@ -185,7 +185,7 @@ func makeDiffLineGraph(nArr []int, name string) {
 		},
 	}
 
-	file, _ := os.Create(name + ".png")
+	file, _ := os.Create("graphs/" + name + ".png")
 	defer file.Close()
 	graph.Render(chart.PNG, file)
 }
@@ -281,7 +281,7 @@ func makeLineGraph(n int, name string) {
 		chart.Legend(&graph),
 	}
 
-	file, _ := os.Create(name + ".png")
+	file, _ := os.Create("graphs/" + name + ".png")
 	defer file.Close()
 	graph.Render(chart.PNG, file)
 }
