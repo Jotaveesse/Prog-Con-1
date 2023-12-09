@@ -74,7 +74,8 @@ func concSieve(rng int) []int {
 
 //----------------CONCORRENTE MELHORADO----------------
 
-func markBlock(start int, end int, primes *[]int, wg *sync.WaitGroup, mutex *sync.Mutex, firstPrimes *[]int) []int {
+func markBlock(start int, end int, firstPrimes *[]int,
+	primes *[]int, wg *sync.WaitGroup, mutex *sync.Mutex) []int {
 	defer wg.Done()
 
 	rng := end - start + 1
@@ -83,29 +84,29 @@ func markBlock(start int, end int, primes *[]int, wg *sync.WaitGroup, mutex *syn
 	//pula todos os pares, logo tamanho da array precisa ser so metade to range
 	var composites = make([]bool, rng/2)
 
-	for _, i := range *firstPrimes {
+	for _, prime := range *firstPrimes {
+
 		//todos os compostos  maiores q a raiz quadrada do limite ja estarao marcados
-		if i > endRoot {
+		if prime > endRoot {
 			break
 		}
 
 		//acha primeiro multiplo de i maior que start
-		firstComposite := ((start + i - 1) / i) * i
+		firstMult := ((start + prime - 1) / prime) * prime
 
 		//se i^2 é maior q o primeiro multiplo é melhor so começar de i^2
-		sqrdI := i * i
-		if firstComposite < sqrdI {
-			firstComposite = sqrdI
+		sqrdI := prime * prime
+		if firstMult < sqrdI {
+			firstMult = sqrdI
 		}
 
 		//se primeiro multiplo é par pega o proximo multiplo, que será impar
-		if (firstComposite & 1) == 0 {
-			firstComposite += i
+		if (firstMult & 1) == 0 {
+			firstMult += prime
 		}
 
 		//marca todos os multiplos de i dentro do intervalo
-		doubleI := i * 2
-		for j := firstComposite; j <= end; j += doubleI {
+		for j := firstMult; j <= end; j += prime * 2 {
 			composites[(j-start)/2] = true
 		}
 
@@ -156,7 +157,7 @@ func blockConcSieve(rng int) []int {
 		}
 
 		wg.Add(1)
-		go markBlock(start, end, &primes, &wg, &mutex, &firstPrimes)
+		go markBlock(start, end, &firstPrimes, &primes, &wg, &mutex)
 	}
 
 	wg.Wait()

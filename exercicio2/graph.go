@@ -355,7 +355,7 @@ func makeDiffLineGraph(tests []TestResult, outputFile string) {
 			Ticks: xTicks,
 		},
 		YAxis: chart.YAxis{
-			Name:  "Porcentagem",
+			Name:  "Microsegundos",
 			Ticks: yTicks,
 		},
 		Series: []chart.Series{
