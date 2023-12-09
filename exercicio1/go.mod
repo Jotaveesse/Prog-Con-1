@@ -1,4 +1,4 @@
-module example.com
+module exercicio1
 
 go 1.21.4
 

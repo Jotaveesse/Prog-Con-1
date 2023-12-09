@@ -74,31 +74,19 @@ func concSieve(rng int) []int {
 
 //----------------CONCORRENTE MELHORADO----------------
 
-func markBlock(start int, end int) []int {
-	//pula todos os pares, logo tamanho da array rpecisa ser so metade to range
-	var composites = make([]bool, (end-start+1)/2)
+func markBlock(start int, end int, primes *[]int, wg *sync.WaitGroup, mutex *sync.Mutex, firstPrimes *[]int) []int {
+	defer wg.Done()
 
-	var endRoot = int(math.Sqrt(float64(end)))
+	rng := end - start + 1
+	endRoot := int(math.Sqrt(float64(end)))
 
-	//marca multiplos de todos os numeros, não so dos primos, no final da no mesmo, mas seria melhor se fossem so primos
-	//pula de 2 em 2 porque pares nao sao considerados
-	for i := 3; i <= endRoot; i += 2 {
+	//pula todos os pares, logo tamanho da array precisa ser so metade to range
+	var composites = make([]bool, rng/2)
 
-		//pula os multiplos de 3,5,7,11,13 pra ficar mais rapido
-		if i >= 3*3 && i%3 == 0 {
-			continue
-		}
-		if i >= 5*5 && i%5 == 0 {
-			continue
-		}
-		if i >= 7*7 && i%7 == 0 {
-			continue
-		}
-		if i >= 11*11 && i%11 == 0 {
-			continue
-		}
-		if i >= 13*13 && i%13 == 0 {
-			continue
+	for _, i := range *firstPrimes {
+		//todos os compostos  maiores q a raiz quadrada do limite ja estarao marcados
+		if i > endRoot {
+			break
 		}
 
 		//acha primeiro multiplo de i maior que start
@@ -116,22 +104,29 @@ func markBlock(start int, end int) []int {
 		}
 
 		//marca todos os multiplos de i dentro do intervalo
-		for j := firstComposite; j <= end; j += i * 2 {
+		doubleI := i * 2
+		for j := firstComposite; j <= end; j += doubleI {
 			composites[(j-start)/2] = true
 		}
 
 	}
 
-	var primes = make([]int, 0, 1)
+	//extrai todos os primos do bit array
+	var slicePrimes = make([]int, 0, 100)
 
 	//extrai todos os primos do bit array
-	for i := 0; i < (end-start+1)/2; i++ {
+	for i := 0; i < rng/2; i++ {
 		if !composites[i] {
-			primes = append(primes, (start+i)*2-1)
+			prime := (start+i)*2 - 1
+			slicePrimes = append(slicePrimes, prime)
 		}
 	}
 
-	return primes
+	mutex.Lock()
+	*primes = append(*primes, slicePrimes...)
+	mutex.Unlock()
+
+	return *primes
 }
 
 func blockConcSieve(rng int) []int {
@@ -139,29 +134,29 @@ func blockConcSieve(rng int) []int {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 
+	rngRoot := int(math.Sqrt(float64(rng)))
+
+	var firstPrimes []int
+	//calcula todos os primos que terão seus multiplos marcados inicialmente
+	if rngRoot < 10000 {
+		firstPrimes = sieve(rngRoot)
+		firstPrimes = firstPrimes[1:]
+	} else {
+		firstPrimes = blockConcSieve(rngRoot)
+		firstPrimes = firstPrimes[1:]
+	}
+
 	sliceSize := 128 * 1024 //128K * 8B (int tem 8 bytes) = 1MB por thread
 
-	for end := 2; end <= rng; end += sliceSize {
+	for start := 2; start <= rng; start += sliceSize {
+		var end = start + sliceSize
+
+		if end > rng {
+			end = rng
+		}
+
 		wg.Add(1)
-		var start = end + sliceSize
-
-		//criação das threads
-		go func(start int, end int) {
-			defer wg.Done()
-
-			if end > rng {
-				end = rng
-			}
-
-			slicePrimes := markBlock(start, end)
-
-			//lock para escrita na array final
-			mutex.Lock()
-			//pode dar erro caso tenham muitos primos ( >64 milhoes ) pq pode ficar sem memoria
-			primes = append(primes, slicePrimes...)
-			mutex.Unlock()
-
-		}(end, start)
+		go markBlock(start, end, &primes, &wg, &mutex, &firstPrimes)
 	}
 
 	wg.Wait()
@@ -197,6 +192,7 @@ func mains() { //trocar nome pra main se quiser executar individualmente
 			primes = concSieve(primeRange)
 		}
 	} else {
+		startTime = time.Now()
 		primes = sieve(primeRange)
 	}
 
