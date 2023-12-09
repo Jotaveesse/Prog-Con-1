@@ -147,7 +147,7 @@ func blockConcSieve(rng int) []int {
 		firstPrimes = firstPrimes[1:]
 	}
 
-	sliceSize := 128 * 1024 //128K * 8B (int tem 8 bytes) = 1MB por thread
+	sliceSize := 256 * 1024 //128K * 8B (int tem 8 bytes) = 1MB por thread
 
 	for start := 2; start <= rng; start += sliceSize {
 		var end = start + sliceSize
