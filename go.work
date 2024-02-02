@@ -3,4 +3,5 @@ go 1.21.4
 use (
 	./exercicio1
 	./exercicio2
+	./exercicio3
 )
