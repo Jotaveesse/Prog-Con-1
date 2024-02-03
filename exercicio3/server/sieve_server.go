@@ -14,8 +14,10 @@ func main() {
 
 	var conn_type string
 
-	fmt.Print("Choose (u) -> udp | (t) -> tcp: ")
-	fmt.Scan(&conn_type)
+	for conn_type != "u" && conn_type != "t" {
+		fmt.Print("Choose (u) -> udp | (t) -> tcp: ")
+		fmt.Scan(&conn_type)
+	}
 
 	if conn_type == "u" {
 		SieveServerUDP()
@@ -64,8 +66,10 @@ func HandleTCPConnection(conn net.Conn) {
 	defer func(conn net.Conn) {
 		err := conn.Close()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(0)
+			if opErr, ok := err.(*net.OpError); !ok || opErr.Err != net.ErrClosed {
+				fmt.Println(err)
+				os.Exit(0)
+			}
 		}
 	}(conn)
 
@@ -85,7 +89,7 @@ func HandleTCPConnection(conn net.Conn) {
 		r := service.SieveCalc{}.InvokeSieveCalc(msgFromClient)
 
 		// cria resposta
-		msgToClient := shared.Reply{Result: []interface{}{r}}
+		msgToClient := shared.Reply{Result: r}
 
 		// serializa & envia resposta para o cliente
 		err = jsonEncoder.Encode(msgToClient)
@@ -93,6 +97,7 @@ func HandleTCPConnection(conn net.Conn) {
 			fmt.Println(err)
 			os.Exit(0)
 		}
+		fmt.Println("Sent response with", len(r), "primes")
 	}
 }
 
@@ -151,7 +156,7 @@ func HandleUDPRequest(conn *net.UDPConn, msgFromClient []byte, n int, addr *net.
 	r := service.SieveCalc{}.InvokeSieveCalc(request)
 
 	// create response
-	rep := shared.Reply{Result: []interface{}{r}}
+	rep := shared.Reply{Result: r}
 
 	// serialise response
 	msgToClient, err = json.Marshal(rep)
@@ -166,4 +171,5 @@ func HandleUDPRequest(conn *net.UDPConn, msgFromClient []byte, n int, addr *net.
 		fmt.Println(err)
 		os.Exit(0)
 	}
+	fmt.Println("Sent response with", len(r), "primes")
 }

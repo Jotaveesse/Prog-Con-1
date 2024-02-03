@@ -15,23 +15,33 @@ func main() {
 	var rng int
 	var conn_type, calcType string
 
-	fmt.Print("Choose (u) -> udp | (t) -> tcp: ")
-	fmt.Scan(&conn_type)
+	for conn_type != "u" && conn_type != "t" {
+		fmt.Print("Choose (u) -> udp | (t) -> tcp: ")
+		fmt.Scan(&conn_type)
+	}
 
-	fmt.Print("Choose (seq) -> sequential | (conc) -> concurrent | (blk_conc) -> block_concurrent: ")
-	fmt.Scan(&calcType)
+	for calcType != "seq" && calcType != "conc" && calcType != "blk_conc" {
+		fmt.Print("Choose (seq) -> sequential | (conc) -> concurrent | (blk_conc) -> block_concurrent: ")
+		fmt.Scan(&calcType)
+	}
 
 	fmt.Print("Choose the range: ")
 	fmt.Scan(&rng)
 
+	var primes []int
+	var rtt time.Duration
+
 	if conn_type == "u" {
-		SieveClientUDP(rng, calcType)
+		primes, rtt = SieveClientUDP(rng, calcType)
 	} else {
-		SieveClientTCP(rng, calcType)
+		primes, rtt = SieveClientTCP(rng, calcType)
 	}
+
+	printPrimes(primes)
+	fmt.Print("RTT: ", rtt)
 }
 
-func SieveClientTCP(rng int, calcType string) {
+func SieveClientTCP(rng int, calcType string) ([]int, time.Duration) {
 	var response shared.Reply
 
 	// retorna o endereço do endpoint
@@ -82,11 +92,10 @@ func SieveClientTCP(rng int, calcType string) {
 
 	endTime = time.Now()
 
-	fmt.Print("Primes:\n", response, "\n")
-	fmt.Print("RTT: ", endTime.Sub(startTime))
+	return response.Result, endTime.Sub(startTime)
 }
 
-func SieveClientUDP(rng int, calcType string) {
+func SieveClientUDP(rng int, calcType string) ([]int, time.Duration) {
 	var response shared.Reply
 
 	// resolve server address
@@ -136,6 +145,16 @@ func SieveClientUDP(rng int, calcType string) {
 
 	endTime = time.Now()
 
-	fmt.Print("Primes:\n", response, "\n")
-	fmt.Print("RTT: ", endTime.Sub(startTime))
+	return response.Result, endTime.Sub(startTime)
+}
+
+func printPrimes(primes []int) {
+	length := len(primes)
+
+	// imprime os primeiros e os ultimos 10 primos
+	if length > 20 {
+		fmt.Println("Found ", length, " primes:\n", primes[:10], " ... ", primes[length-10:])
+	} else {
+		fmt.Println("Found", length, "primes:\n", primes)
+	}
 }
