@@ -95,7 +95,9 @@ func HandleTCPConnection(conn net.Conn) {
 		err = jsonEncoder.Encode(msgToClient)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(0)
+			break
+			//os.Exit(0)
+
 		}
 		//fmt.Println("Sent response with", len(r), "primes")
 	}
