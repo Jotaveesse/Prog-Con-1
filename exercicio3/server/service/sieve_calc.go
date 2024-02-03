@@ -137,7 +137,7 @@ func markBlock(start int, end int, firstPrimes *[]int,
 	//extrai todos os primos do bit array
 	for i := 0; i < rng/2; i++ {
 		if !composites[i] {
-			prime := (start+i)*2 - 1
+			prime := (start + i*2) + 1
 			slicePrimes = append(slicePrimes, prime)
 		}
 	}
