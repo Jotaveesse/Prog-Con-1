@@ -5,13 +5,14 @@ import (
 	"exercicio3/server/service"
 	"exercicio3/shared"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
-
 	var conn_type string
 
 	for conn_type != "u" && conn_type != "t" {
@@ -167,11 +168,44 @@ func HandleUDPRequest(conn *net.UDPConn, msgFromClient []byte, n int, addr *net.
 		os.Exit(0)
 	}
 
-	// send response
-	_, err = conn.WriteTo(msgToClient, addr)
+	var ChunkSize = 1024
+
+	packetCount := math.Ceil(float64(len(msgToClient)) / float64(ChunkSize))
+	packetsToClient, err := json.Marshal(packetCount)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(0)
 	}
+
+	_, err = conn.WriteTo(packetsToClient, addr)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
+	start := time.Now()
+
+	// divide mensagem em varrios pendaços e envia cada um deles
+	for i := 0; i < len(msgToClient); i += ChunkSize {
+		end := i + ChunkSize
+		if end > len(msgToClient) {
+			end = len(msgToClient)
+		}
+		chunk := msgToClient[i:end]
+
+		// send a chunk
+		_, err := conn.WriteTo(chunk, addr)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(0)
+		}
+
+		if i%100 == 99 {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	end := time.Now()
+	fmt.Println(end.Sub(start))
+
 	//fmt.Println("Sent response with", len(r), "primes")
 }

@@ -1,4 +1,4 @@
-package client
+package main
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ func main() {
 	var rtt time.Duration
 
 	if conn_type == "u" {
-		conn := startConnectionUDP()
+		conn := StartConnectionUDP()
 
 	connLoopUDP:
 		for {
@@ -34,7 +34,7 @@ func main() {
 				fmt.Scan(&calcType)
 
 				if calcType == "q" {
-					closeConnectionUDP(conn)
+					CloseConnectionUDP(conn)
 					break connLoopUDP
 				}
 			}
@@ -42,13 +42,13 @@ func main() {
 			fmt.Print("Choose the range: ")
 			fmt.Scan(&rng)
 
-			primes, rtt = sendMessageUDP(conn, rng, calcType)
+			primes, rtt = SendMessageUDP(conn, rng, calcType)
 
 			printPrimes(primes)
 			fmt.Println("RTT: ", rtt)
 		}
 	} else {
-		conn := startConnectionTCP()
+		conn := StartConnectionTCP()
 
 	connLoopTCP:
 		for {
@@ -58,7 +58,7 @@ func main() {
 				fmt.Scan(&calcType)
 
 				if calcType == "q" {
-					closeConnectionTCP(conn)
+					CloseConnectionTCP(conn)
 					break connLoopTCP
 				}
 			}
@@ -66,7 +66,7 @@ func main() {
 			fmt.Print("Choose the range: ")
 			fmt.Scan(&rng)
 
-			primes, rtt = sendMessageTCP(conn, rng, calcType)
+			primes, rtt = SendMessageTCP(conn, rng, calcType)
 
 			printPrimes(primes)
 			fmt.Println("RTT: ", rtt)
@@ -77,7 +77,7 @@ func main() {
 	// fmt.Print("RTT: ", rtt)
 }
 
-func startConnectionTCP() *net.TCPConn {
+func StartConnectionTCP() *net.TCPConn {
 	// retorna o endereço do endpoint
 	r, err := net.ResolveTCPAddr("tcp", "localhost:1314")
 	if err != nil {
@@ -95,7 +95,7 @@ func startConnectionTCP() *net.TCPConn {
 	return conn
 }
 
-func sendMessageTCP(conn *net.TCPConn, rng int, calcType string) ([]int, time.Duration) {
+func SendMessageTCP(conn *net.TCPConn, rng int, calcType string) ([]int, time.Duration) {
 	var response shared.Reply
 
 	// cria enconder/decoder
@@ -127,7 +127,7 @@ func sendMessageTCP(conn *net.TCPConn, rng int, calcType string) ([]int, time.Du
 	return response.Result, endTime.Sub(startTime)
 }
 
-func closeConnectionTCP(conn *net.TCPConn) {
+func CloseConnectionTCP(conn *net.TCPConn) {
 	err := conn.Close()
 	if err != nil {
 		fmt.Println(err)
@@ -135,13 +135,13 @@ func closeConnectionTCP(conn *net.TCPConn) {
 }
 
 func SieveClientTCP(rng int, calcType string) ([]int, time.Duration) {
-	conn := startConnectionTCP()
-	defer closeConnectionTCP(conn)
+	conn := StartConnectionTCP()
+	defer CloseConnectionTCP(conn)
 
-	return sendMessageTCP(conn, rng, calcType)
+	return SendMessageTCP(conn, rng, calcType)
 }
 
-func startConnectionUDP() *net.UDPConn {
+func StartConnectionUDP() *net.UDPConn {
 	addr, err := net.ResolveUDPAddr("udp", "localhost:"+strconv.Itoa(shared.SievePort))
 	if err != nil {
 		fmt.Println(err)
@@ -157,10 +157,10 @@ func startConnectionUDP() *net.UDPConn {
 	return conn
 }
 
-func sendMessageUDP(conn *net.UDPConn, rng int, calcType string) ([]int, time.Duration) {
+func SendMessageUDP(conn *net.UDPConn, rng int, calcType string) ([]int, time.Duration) {
 	var response shared.Reply
 
-	decoder := json.NewDecoder(conn)
+	//decoder := json.NewDecoder(conn)
 	encoder := json.NewEncoder(conn)
 
 	request := shared.Request{Type: calcType, Rng: rng}
@@ -174,7 +174,43 @@ func sendMessageUDP(conn *net.UDPConn, rng int, calcType string) ([]int, time.Du
 		os.Exit(0)
 	}
 
-	err = decoder.Decode(&response)
+	var buffer [1024]byte
+	var packetCount int
+
+	n, _, err := conn.ReadFromUDP(buffer[:])
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = json.Unmarshal(buffer[:n], &packetCount)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
+
+	var data = make([]byte, 0, (packetCount-1)*1024)
+
+	for i := 0; i < packetCount; i++ {
+
+		// Receive a chunk
+		n, _, err := conn.ReadFromUDP(buffer[:])
+
+		// err = decoder.Decode(&chunk)
+		if err != nil {
+			fmt.Println(err)
+		}
+		// Process the chunk (e.g., append it to the data)
+		data = append(data, buffer[:n]...)
+
+		// if i%100 == 0 {
+		// 	fmt.Println(i)
+		// }
+
+	}
+
+	//fmt.Println(data)
+
+	err = json.Unmarshal(data, &response)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(0)
@@ -185,7 +221,7 @@ func sendMessageUDP(conn *net.UDPConn, rng int, calcType string) ([]int, time.Du
 	return response.Result, endTime.Sub(startTime)
 }
 
-func closeConnectionUDP(conn *net.UDPConn) {
+func CloseConnectionUDP(conn *net.UDPConn) {
 	err := conn.Close()
 	if err != nil {
 		fmt.Println(err)
@@ -193,10 +229,10 @@ func closeConnectionUDP(conn *net.UDPConn) {
 }
 
 func SieveClientUDP(rng int, calcType string) ([]int, time.Duration) {
-	conn := startConnectionUDP()
-	defer closeConnectionUDP(conn)
+	conn := StartConnectionUDP()
+	defer CloseConnectionUDP(conn)
 
-	return sendMessageUDP(conn, rng, calcType)
+	return SendMessageUDP(conn, rng, calcType)
 }
 
 func printPrimes(primes []int) {

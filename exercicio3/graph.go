@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	chart "github.com/wcharczuk/go-chart/v2"
 )
@@ -20,6 +19,7 @@ type TestResult struct {
 
 func joinTests(tests1 []TestResult, tests2 []TestResult) []TestResult {
 	var joinedTests []TestResult
+	client.SieveClientTCP(2, "")
 
 	for _, test1 := range tests1 {
 		for _, test2 := range tests2 {
@@ -40,12 +40,12 @@ func joinTests(tests1 []TestResult, tests2 []TestResult) []TestResult {
 
 func main() {
 	names := []string{"UDP", "TCP"}
-	functions := []func(int, string) ([]int, time.Duration){client.SieveClientUDP, client.SieveClientTCP}
-	testNs1 := []int{100, 100, 100}
-	testNs2 := []int{100, 100, 100}
+	//functions := []func(int, string) ([]int, time.Duration){client.sendMessageUDP, client.sendMessageTCP}
+	testNs1 := []int{500, 1000, 5000}
+	testNs2 := []int{10000, 50000, 100000}
 
-	tests1 := runTests(names, functions, testNs1)
-	tests2 := runTests(names, functions, testNs2)
+	tests1 := runTests(names, testNs1)
+	tests2 := runTests(names, testNs2)
 	testsJoined := joinTests(tests1, tests2)
 
 	makeBarChart(tests1, "comp-tempo")
@@ -54,34 +54,57 @@ func main() {
 	makeDiffPercLineGraph(testsJoined, "diff-perc")
 }
 
-func runTests(names []string, testFuncs []func(int, string) ([]int, time.Duration), nArr []int) []TestResult {
-	avrgLoops := 1000
+func runTests(names []string, nArr []int) []TestResult {
+	avrgLoops := 10000
 
 	var results []TestResult
 
-	//para cada função
-	for i, function := range testFuncs {
-		var res TestResult
-		res.Name = names[i]
+	var resTCP TestResult
+	resTCP.Name = names[0]
 
-		//para cada valor de N
-		for _, n := range nArr {
-			totalRtt := 0
+	//para cada valor de N
+	for _, n := range nArr {
+		totalRtt := 0
 
-			for k := 0; k < avrgLoops; k++ {
-				_, rtt := function(n, "blk_conc")
+		conn := client.StartConnectionUDP()
 
-				totalRtt += int(rtt.Microseconds())
-			}
-
-			avrgMicro := float64(totalRtt) / float64(avrgLoops)
-
-			res.Ns = append(res.Ns, n)
-			res.Results = append(res.Results, avrgMicro)
+		for k := 0; k < avrgLoops; k++ {
+			_, rtt := client.SendMessageUDP(conn, n, "blk_conc")
+			//fmt.Println(totalRtt)
+			totalRtt += int(rtt.Microseconds())
 		}
+		client.CloseConnectionUDP(conn)
 
-		results = append(results, res)
+		avrgMicro := float64(totalRtt) / float64(avrgLoops)
+
+		resTCP.Ns = append(resTCP.Ns, n)
+		resTCP.Results = append(resTCP.Results, avrgMicro)
 	}
+
+	results = append(results, resTCP)
+
+	var resUDP TestResult
+	resUDP.Name = names[1]
+
+	//para cada valor de N
+	for _, n := range nArr {
+		totalRtt := 0
+
+		conn := client.StartConnectionTCP()
+
+		for k := 0; k < avrgLoops; k++ {
+			_, rtt := client.SendMessageTCP(conn, n, "blk_conc")
+			totalRtt += int(rtt.Microseconds())
+		}
+		client.CloseConnectionTCP(conn)
+
+		avrgMicro := float64(totalRtt) / float64(avrgLoops)
+
+		resUDP.Ns = append(resUDP.Ns, n)
+		resUDP.Results = append(resUDP.Results, avrgMicro)
+	}
+
+	results = append(results, resUDP)
 
 	return results
 }
