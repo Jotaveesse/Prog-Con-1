@@ -97,7 +97,7 @@ func HandleTCPConnection(conn net.Conn) {
 			fmt.Println(err)
 			os.Exit(0)
 		}
-		fmt.Println("Sent response with", len(r), "primes")
+		//fmt.Println("Sent response with", len(r), "primes")
 	}
 }
 
@@ -171,5 +171,5 @@ func HandleUDPRequest(conn *net.UDPConn, msgFromClient []byte, n int, addr *net.
 		fmt.Println(err)
 		os.Exit(0)
 	}
-	fmt.Println("Sent response with", len(r), "primes")
+	//fmt.Println("Sent response with", len(r), "primes")
 }
