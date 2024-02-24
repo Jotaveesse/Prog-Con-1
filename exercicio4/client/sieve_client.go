@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func main() {
+func Run() {
 
 	var rng int
 	var conn_type, tryAgain, calcType string

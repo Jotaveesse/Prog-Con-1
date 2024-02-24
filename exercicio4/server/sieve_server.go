@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func main() {
+func Run() {
 	var conn_type string
 
 	for conn_type != "u" && conn_type != "t" && conn_type != "r" {
@@ -211,7 +211,7 @@ func HandleUDPRequest(conn *net.UDPConn, msgFromClient []byte, n int, addr *net.
 		fmt.Println(err)
 		os.Exit(0)
 	}
-	start := time.Now()
+	//start := time.Now()
 
 	// divide mensagem em varrios pendaços e envia cada um deles
 	for i := 0; i < len(msgToClient); i += ChunkSize {
@@ -233,8 +233,8 @@ func HandleUDPRequest(conn *net.UDPConn, msgFromClient []byte, n int, addr *net.
 		}
 	}
 
-	end := time.Now()
-	fmt.Println(end.Sub(start))
+	//end := time.Now()
+	//fmt.Println(end.Sub(start))
 
 	//fmt.Println("Sent response with", len(r), "primes")
 }
