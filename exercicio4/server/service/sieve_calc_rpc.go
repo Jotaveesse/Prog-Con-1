@@ -13,7 +13,7 @@ type Reply struct {
 	Result []int
 }
 
-func (t *SieveCalcRPC) rpcBlockConcSieve(req Request, res *Reply) error {
+func (t *SieveCalcRPC) RpcBlockConcSieve(req Request, res *Reply) error {
 	res.Result = SieveCalc{}.blockConcSieve(req.Rng)
 	return nil
 }

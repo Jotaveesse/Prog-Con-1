@@ -32,15 +32,6 @@ func main() {
 	connLoopUDP:
 		for {
 			tryAgain = ""
-			for tryAgain != "n" {
-				fmt.Print("Want to try again (y) -> yes | (n) -> no: ")
-				fmt.Scan(&tryAgain)
-
-				if tryAgain == "n" {
-					CloseConnectionUDP(conn)
-					break connLoopUDP
-				}
-			}
 
 			fmt.Print("Choose the range: ")
 			fmt.Scan(&rng)
@@ -49,23 +40,22 @@ func main() {
 
 			printPrimes(primes)
 			fmt.Println("RTT: ", rtt)
+
+			fmt.Print("Want to try again (y) -> yes | (n) -> no: ")
+			fmt.Scan(&tryAgain)
+
+			if tryAgain == "n" {
+				CloseConnectionUDP(conn)
+				break connLoopUDP
+			}
 		}
-	} else {
+	} else if conn_type == "t" {
 		conn := StartConnectionTCP()
 
 	connLoopTCP:
 		for {
 			tryAgain = ""
-			for tryAgain != "n" {
-				fmt.Print("Want to try again (y) -> yes | (n) -> no: ")
-				fmt.Scan(&tryAgain)
-
-				if tryAgain == "n" {
-					CloseConnectionTCP(conn)
-					break connLoopTCP
-				}
-			}
-
+			
 			fmt.Print("Choose the range: ")
 			fmt.Scan(&rng)
 
@@ -73,13 +63,28 @@ func main() {
 
 			printPrimes(primes)
 			fmt.Println("RTT: ", rtt)
-		}
-	}
 
-coonLoopRPC:
-	for {
-		tryAgain = ""
-		for tryAgain != "n" {
+			fmt.Print("Want to try again (y) -> yes | (n) -> no: ")
+			fmt.Scan(&tryAgain)
+
+			if tryAgain == "n" {
+				CloseConnectionTCP(conn)
+				break connLoopTCP
+			}
+		}
+	} else {
+	coonLoopRPC:
+		for {
+			tryAgain = ""
+
+			fmt.Print("Choose the range: ")
+			fmt.Scan(&rng)
+
+			primes, rtt = ClientRPC(rng, calcType)
+
+			printPrimes(primes)
+			fmt.Println("RTT: ", rtt)
+
 			fmt.Print("Want to try again (y) -> yes | (n) -> no: ")
 			fmt.Scan(&tryAgain)
 
@@ -87,21 +92,13 @@ coonLoopRPC:
 				break coonLoopRPC
 			}
 		}
-
-		fmt.Print("Choose the range: ")
-		fmt.Scan(&rng)
-
-		primes, rtt = CientRPC(rng, calcType)
-
-		printPrimes(primes)
-		fmt.Println("RTT: ", rtt)
 	}
 
 	// printPrimes(primes)
 	// fmt.Print("RTT: ", rtt)
 }
 
-func CientRPC(rng int, calcType string) ([]int, time.Duration) {
+func ClientRPC(rng int, calcType string) ([]int, time.Duration) {
 	// conecta ao servidor
 	client, err := rpc.Dial("tcp", "localhost:1313")
 	if err != nil {
@@ -119,7 +116,7 @@ func CientRPC(rng int, calcType string) ([]int, time.Duration) {
 	var startTime, endTime time.Time
 	startTime = time.Now()
 
-	err = client.Call("SieveCalcRPC.rpcBlockConcSieve", req, &reply)
+	err = client.Call("SieveCalcRPC.RpcBlockConcSieve", req, &reply)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(0)
