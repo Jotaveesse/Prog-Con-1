@@ -109,14 +109,18 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 		fmt.Println("Testing "+ names[2] + " for N = " + fmt.Sprint(n))
 		totalRtt := 0
 
+		conn := client.StartConnectionRPC()
+
 		for k := 0; k < iterations+(2*warmUpAmount); k++ {
-			_, rtt := client.ClientRPC(n, "blk_conc")
+			_, rtt := client.SendMessageRPC(conn, n, "blk_conc")
 
 			//nao contabiliza os 10% primeiros e ultimos
 			if k > warmUpAmount || k < iterations+warmUpAmount {
 				totalRtt += int(rtt.Microseconds())
 			}
 		}
+
+		client.CloseConnectionRPC(conn)
 
 		avrgMicro := float64(totalRtt) / float64(iterations)
 

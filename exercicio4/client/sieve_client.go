@@ -73,6 +73,7 @@ func Run() {
 			}
 		}
 	} else {
+		client := StartConnectionRPC()
 	coonLoopRPC:
 		for {
 			tryAgain = ""
@@ -80,7 +81,7 @@ func Run() {
 			fmt.Print("Choose the range: ")
 			fmt.Scan(&rng)
 
-			primes, rtt = ClientRPC(rng, calcType)
+			primes, rtt = SendMessageRPC(client, rng, calcType)
 
 			printPrimes(primes)
 			fmt.Println("RTT: ", rtt)
@@ -89,6 +90,7 @@ func Run() {
 			fmt.Scan(&tryAgain)
 
 			if tryAgain == "n" {
+				CloseConnectionRPC(client)
 				break coonLoopRPC
 			}
 		}
@@ -98,25 +100,26 @@ func Run() {
 	// fmt.Print("RTT: ", rtt)
 }
 
-func ClientRPC(rng int, calcType string) ([]int, time.Duration) {
-	// conecta ao servidor
+func StartConnectionRPC() *rpc.Client{
 	client, err := rpc.Dial("tcp", "localhost:1313")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(0)
 	}
 
-	defer client.Close()
+	return client
+}
 
+func SendMessageRPC(client *rpc.Client, rng int, calcType string) ([]int, time.Duration) {
 	var reply shared.Reply
 
+	var startTime, endTime time.Time
 	// invoca operação remota
 	req := shared.Request{Rng: rng, Type: calcType}
 
-	var startTime, endTime time.Time
 	startTime = time.Now()
 
-	err = client.Call("SieveCalcRPC.RpcBlockConcSieve", req, &reply)
+	err := client.Call("SieveCalcRPC.RpcBlockConcSieve", req, &reply)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(0)
@@ -125,6 +128,13 @@ func ClientRPC(rng int, calcType string) ([]int, time.Duration) {
 	endTime = time.Now()
 
 	return reply.Result, endTime.Sub(startTime)
+}
+
+func CloseConnectionRPC(client *rpc.Client){
+	err := client.Close()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func StartConnectionTCP() *net.TCPConn {
