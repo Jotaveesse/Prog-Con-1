@@ -190,7 +190,7 @@ func makeBarChart(tests []TestResult, outputFile string) {
 	title = replaceLastOccurrence(title, ",", "")
 	title = replaceLastOccurrence(title, ",", " e")
 
-	maxDiff = float64(roundToNextNum(int(maxDiff), 1000))
+	maxDiff = float64(roundToNextNum(int(maxDiff), 500))
 
 	//cria 10 marcadores verticais em valores arredondados com base no maximo e minimo
 	for i := int64(0); i <= 10; i++ {
