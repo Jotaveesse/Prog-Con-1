@@ -3,12 +3,15 @@ package graph
 import (
 	"exercicio4/client"
 	"fmt"
-	chart "github.com/wcharczuk/go-chart/v2"
 	"math"
 	"os"
 	"strconv"
 	"strings"
+
+	chart "github.com/wcharczuk/go-chart/v2"
 )
+
+var gridStyle = chart.Style{StrokeWidth: 2, StrokeColor: chart.ColorBlack.WithAlpha(50)}
 
 type TestResult struct {
 	Name    string
@@ -206,6 +209,7 @@ func makeBarChart(tests []TestResult, outputFile string) {
 		YAxis: chart.YAxis{
 			Name:  "Microsegundos",
 			Ticks: yTicks,
+			GridLines:chart.GenerateGridLines(yTicks, gridStyle, gridStyle),
 		},
 
 		Background: chart.Style{
@@ -269,6 +273,7 @@ func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string
 		YAxis: chart.YAxis{
 			Name:  "Porcentagem",
 			Ticks: yTicks,
+			GridLines:chart.GenerateGridLines(yTicks, gridStyle, gridStyle),
 		},
 		Series: []chart.Series{
 			chart.ContinuousSeries{
@@ -345,6 +350,7 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 		YAxis: chart.YAxis{
 			Name:  "Microsegundos",
 			Ticks: yTicks,
+			GridLines:chart.GenerateGridLines(yTicks, gridStyle, gridStyle),
 		},
 		Series: []chart.Series{
 			chart.ContinuousSeries{
@@ -463,9 +469,11 @@ func makeGrowthLineGraph(tests []TestResult, outputFile string) {
 		YAxis: chart.YAxis{
 			Name:  "Porcentagem",
 			Ticks: yTicks,
+			GridLines:chart.GenerateGridLines(yTicks, gridStyle, gridStyle),
 		},
-		Series: lineSeries,
+		Series: lineSeries,		
 	}
+
 
 	//cria o arquivo de imagem
 	file := createImageFile(outputFile)
