@@ -27,6 +27,7 @@ func Run() {
 	testNs1 := []int{500, 1000, 5000}
 	testNs2 := []int{10000, 50000, 100000}
 
+	//divididos em 2 testes para terem 2 graficos de barras, ja que ficaria feio todos em um unico grafico
 	tests1 := runTests(iterations, names, testNs1)
 	tests2 := runTests(iterations, names, testNs2)
 	testsJoined := joinTests(tests1, tests2)
@@ -40,6 +41,8 @@ func Run() {
 func runTests(iterations int, names []string, nArr []int) []TestResult {
 	var results []TestResult
 
+	warmUpAmount := int(float64(iterations) * 0.1)
+
 	var resTCP TestResult
 	resTCP.Name = names[0]
 
@@ -49,10 +52,14 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 
 		conn := client.StartConnectionUDP()
 
-		for k := 0; k < iterations; k++ {
+		for k := 0; k < iterations+(2*warmUpAmount); k++ {
 			_, rtt := client.SendMessageUDP(conn, n, "blk_conc")
 			//fmt.Println(totalRtt)
-			totalRtt += int(rtt.Microseconds())
+
+			//nao contabiliza os 10% primeiros e ultimos
+			if k > warmUpAmount || k < iterations+warmUpAmount {
+				totalRtt += int(rtt.Microseconds())
+			}
 		}
 		client.CloseConnectionUDP(conn)
 
@@ -73,9 +80,13 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 
 		conn := client.StartConnectionTCP()
 
-		for k := 0; k < iterations; k++ {
+		for k := 0; k < iterations+(2*warmUpAmount); k++ {
 			_, rtt := client.SendMessageTCP(conn, n, "blk_conc")
-			totalRtt += int(rtt.Microseconds())
+			
+			//nao contabiliza os 10% primeiros e ultimos
+			if k > warmUpAmount || k < iterations+warmUpAmount {
+				totalRtt += int(rtt.Microseconds())
+			}
 		}
 		client.CloseConnectionTCP(conn)
 
@@ -94,9 +105,13 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 	for _, n := range nArr {
 		totalRtt := 0
 
-		for k := 0; k < iterations; k++ {
+		for k := 0; k < iterations+(2*warmUpAmount); k++ {
 			_, rtt := client.ClientRPC(n, "blk_conc")
-			totalRtt += int(rtt.Microseconds())
+
+			//nao contabiliza os 10% primeiros e ultimos
+			if k > warmUpAmount || k < iterations+warmUpAmount {
+				totalRtt += int(rtt.Microseconds())
+			}
 		}
 
 		avrgMicro := float64(totalRtt) / float64(iterations)
@@ -137,8 +152,10 @@ func makeBarChart(tests []TestResult, outputFile string) {
 
 	var bars []chart.Value
 
+	//para cada N
 	for i := 0; i < len(tests[0].Results); i++ {
 
+		//para cada teste
 		for j, test := range tests {
 			sty := chart.Style{
 				FillColor:   chart.DefaultColors[j],
@@ -165,13 +182,17 @@ func makeBarChart(tests []TestResult, outputFile string) {
 	title = replaceLastOccurrence(title, ",", "")
 	title = replaceLastOccurrence(title, ",", " e")
 
+	maxDiff = float64(roundToNextThousand(int(maxDiff)))
+
+	//cria 10 marcadores verticais em valores arredondados com base no maximo e minimo
 	for i := int64(0); i <= 10; i++ {
-		val := float64(int(i * int64(roundToNextThousand(int(maxDiff))/10)))
+		val := float64(int(i*int64(maxDiff)) / 10)
 		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.0f", val)})
 	}
 
+	//cria o grafico
 	graph := chart.BarChart{
-		Title:      fmt.Sprintf(title),
+		Title:      title,
 		TitleStyle: chart.Style{FontSize: 14},
 
 		YAxis: chart.YAxis{
@@ -189,12 +210,13 @@ func makeBarChart(tests []TestResult, outputFile string) {
 		Bars:     bars,
 	}
 
-	file, err := os.Create("graphs/"+outputFile+".png")
+	//cria o arquivo de imagem
+	file, err := os.Create("graphs/" + outputFile + ".png")
 	if err != nil {
 		if os.IsNotExist(err) {
-            fmt.Println("Diretório não encontrado, execute o código dentro do diretório do exercício")
-        } else {
-            fmt.Println(err)
+			fmt.Println("Diretório não encontrado, execute o código dentro do diretório do exercício")
+		} else {
+			fmt.Println(err)
 		}
 	}
 	defer file.Close()
@@ -215,7 +237,7 @@ func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string
 	for j, n := range subj1.Ns {
 		xTicks = append(xTicks, chart.Tick{Value: float64(j), Label: fmt.Sprintf("%s", addSeparator(n, "."))})
 	}
-	
+
 	//calcula as porcentagens
 	ratios := ratioArrays(subj2.Results, subj1.Results)
 
@@ -232,7 +254,7 @@ func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string
 		}
 	}
 
-	//cria 10 marcadores verticais em valores arredondados com base no maximo e minimo
+	//cria 10 marcadores verticais com base no maximo e minimo
 	for i := 0; i <= 10; i++ {
 		val := minDiff + float64(i)*((maxDiff-minDiff)/10)
 		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.2f%%", val)})
@@ -269,7 +291,15 @@ func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string
 		},
 	}
 
-	file, _ := os.Create("graphs/" + outputFile + ".png")
+	//cria o arquivo de imagem
+	file, err := os.Create("graphs/" + outputFile + ".png")
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("Diretório não encontrado, execute o código dentro do diretório do exercício")
+		} else {
+			fmt.Println(err)
+		}
+	}
 	defer file.Close()
 	graph.Render(chart.PNG, file)
 }
@@ -303,19 +333,18 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 		if diff < minDiff {
 			minDiff = diff
 		}
-	}	
+	}
 
-	minDiff = float64(roundToNextThousand(int(minDiff)))-1000
+	minDiff = float64(roundToNextThousand(int(minDiff))) - 1000
 	maxDiff = float64(roundToNextThousand(int(maxDiff)))
-	
+
 	//cria 10 marcadores verticais em valores arredondados com base no maximo e minimo
 	for i := 0; i <= 10; i++ {
-		val := minDiff + float64(i) * (maxDiff-minDiff) / 10
+		val := minDiff + float64(i)*(maxDiff-minDiff)/10
 		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.0f", val)})
 	}
-	fmt.Println(yTicks)
 
-	title := "Diferença Entre "+ subj1.Name + " e "+subj2.Name
+	title := "Diferença Entre " + subj1.Name + " e " + subj2.Name
 
 	//cria o gráfico
 	graph := chart.Chart{
@@ -346,12 +375,13 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 		},
 	}
 
-	file, err := os.Create("graphs/"+outputFile+".png")
+	//cria o arquivo de imagem
+	file, err := os.Create("graphs/" + outputFile + ".png")
 	if err != nil {
 		if os.IsNotExist(err) {
-            fmt.Println("Diretório não encontrado, execute o código dentro do diretório do exercício")
-        } else {
-            fmt.Println(err)
+			fmt.Println("Diretório não encontrado, execute o código dentro do diretório do exercício")
+		} else {
+			fmt.Println(err)
 		}
 	}
 	defer file.Close()
