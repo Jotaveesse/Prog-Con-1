@@ -274,7 +274,16 @@ func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string
 			chart.ContinuousSeries{
 				Style: chart.Style{
 					StrokeColor: chart.DefaultColors[0],
-					StrokeWidth: 2,
+					StrokeWidth: 3,
+				},
+				XValues: xValues,
+				YValues: ratios,
+			},
+			chart.ContinuousSeries{
+				Style: chart.Style{
+					DotColor: chart.DefaultColors[0],
+					StrokeWidth: chart.Disabled,
+					DotWidth: 5,
 				},
 				XValues: xValues,
 				YValues: ratios,
@@ -341,7 +350,16 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 			chart.ContinuousSeries{
 				Style: chart.Style{
 					StrokeColor: chart.DefaultColors[0],
-					StrokeWidth: 2,
+					StrokeWidth: 3,
+				},
+				XValues: xValues,
+				YValues: differences,
+			},
+			chart.ContinuousSeries{
+				Style: chart.Style{
+					DotColor: chart.DefaultColors[0],
+					StrokeWidth: chart.Disabled,
+					DotWidth: 5,
 				},
 				XValues: xValues,
 				YValues: differences,
@@ -383,7 +401,17 @@ func makeGrowthLineGraph(tests []TestResult, outputFile string) {
 		lineSeries = append(lineSeries, chart.ContinuousSeries{
 			Style: chart.Style{
 				StrokeColor: chart.DefaultColors[i],
-				StrokeWidth: 2,
+				StrokeWidth: 3,
+			},
+			XValues: xValues,
+			YValues: growth,
+		})
+
+		lineSeries = append(lineSeries, chart.ContinuousSeries{
+			Style: chart.Style{
+				DotColor: chart.DefaultColors[i],
+				StrokeWidth: chart.Disabled,
+				DotWidth: 5,
 			},
 			XValues: xValues,
 			YValues: growth,
