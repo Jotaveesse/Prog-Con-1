@@ -25,7 +25,7 @@ func Run() {
 	fmt.Print("Choose how many iterations: ")
 	fmt.Scan(&iterations)
 
-	names := []string{"UDP", "TCP", "RCP"}
+	names := []string{"UDP", "TCP", "RPC"}
 	//functions := []func(int, string) ([]int, time.Duration){client.sendMessageUDP, client.sendMessageTCP}
 	testNs1 := []int{300, 1000, 3000}
 	testNs2 := []int{10000, 30000, 100000}
