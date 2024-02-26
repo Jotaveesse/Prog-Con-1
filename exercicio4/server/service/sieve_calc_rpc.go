@@ -1,19 +1,12 @@
 package service
 
-import ()
+import (
+	"exercicio4/shared"
+)
 
 type SieveCalcRPC struct{}
 
-type Request struct {
-	Rng int
-	calcType string
-}
-
-type Reply struct {
-	Result []int
-}
-
-func (t *SieveCalcRPC) RpcBlockConcSieve(req Request, res *Reply) error {
+func (t *SieveCalcRPC) RpcBlockConcSieve(req shared.Request, res *shared.Reply) error {
 	res.Result = SieveCalc{}.blockConcSieve(req.Rng)
 	return nil
 }
