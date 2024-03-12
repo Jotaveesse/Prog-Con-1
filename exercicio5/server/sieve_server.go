@@ -1,14 +1,16 @@
 package server
 
 import (
+	"encoding/json"
 	"exercicio5/server/service"
 	"exercicio5/shared"
-	"github.com/streadway/amqp"
 	"fmt"
 	"net"
 	"net/rpc"
 	"os"
-	"encoding/json"
+	"time"
+
+	"github.com/streadway/amqp"
 )
 
 func Run() {
@@ -94,10 +96,13 @@ func SieveServerRabbitMQ() {
 		shared.ErrCheck(err, "Falha ao desserializar a mensagem")
 
 		// processa request
+		var startTime, endTime time.Time
+		startTime = time.Now()
 		r := service.SieveCalc{}.InvokeSieveCalc(msg)
+		endTime = time.Now()
 
 		// prepara resposta
-		replyMsg := shared.Reply{Result: r}
+		replyMsg := shared.Reply{Result: r, ProcessTime: endTime.Sub(startTime)}
 		replyMsgBytes, err := json.Marshal(replyMsg)
 		shared.ErrCheck(err, "Falha ao serializar mensagem")
 
@@ -115,6 +120,5 @@ func SieveServerRabbitMQ() {
 		)
 		shared.ErrCheck(err, "Falha ao enviar a mensagem para o broker")
 	}
-
 
 }
