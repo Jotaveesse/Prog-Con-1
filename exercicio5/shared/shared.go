@@ -3,6 +3,7 @@ package shared
 import (
 	"log"
 	"math/rand"
+	"time"
 )
 
 const SievePort = 4040
@@ -16,6 +17,7 @@ type Request struct {
 
 type Reply struct {
 	Result []int
+	ProcessTime time.Duration
 }
 
 func ErrCheck(err error, msg string) {

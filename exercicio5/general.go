@@ -3,6 +3,7 @@ package main
 import (
 	"exercicio5/client"
 	"exercicio5/server"
+	"exercicio5/graphs"
 	"fmt"
 )
 
@@ -19,6 +20,6 @@ func main(){
 	} else if chosen == "c" {
 		client.Run()
 	} else {
-		// graph.Run()
+		graph.Run()
 	}
 }

@@ -35,7 +35,7 @@ func Run() {
 			fmt.Print("Choose the range: ")
 			fmt.Scan(&rng)
 
-			primes, rtt = SendMessageRPC(client, rng, calcType)
+			primes, rtt, _ = SendMessageRPC(client, rng, calcType)
 
 			printPrimes(primes)
 			fmt.Println("RTT: ", rtt)
@@ -49,7 +49,7 @@ func Run() {
 			}
 		}
 	} else {
-		conn, ch := StartConnectionRabbitMQ()
+		conn, ch, replyQueue, msgs := StartConnectionRabbitMQ()
 
 	coonLoopRabbitMQ:
 		for {
@@ -58,7 +58,7 @@ func Run() {
 			fmt.Print("Choose the range: ")
 			fmt.Scan(&rng)
 
-			primes, rtt = SendMessageRabbitMQ(ch, rng, calcType)
+			primes, rtt, _ = SendMessageRabbitMQ(rng, ch, replyQueue, msgs, calcType)
 
 			printPrimes(primes)
 			fmt.Println("RTT: ", rtt)
@@ -86,7 +86,7 @@ func StartConnectionRPC() *rpc.Client {
 	return client
 }
 
-func SendMessageRPC(client *rpc.Client, rng int, calcType string) ([]int, time.Duration) {
+func SendMessageRPC(client *rpc.Client, rng int, calcType string) ([]int, time.Duration, time.Duration) {
 	var reply shared.Reply
 
 	var startTime, endTime time.Time
@@ -103,7 +103,7 @@ func SendMessageRPC(client *rpc.Client, rng int, calcType string) ([]int, time.D
 
 	endTime = time.Now()
 
-	return reply.Result, endTime.Sub(startTime)
+	return reply.Result, endTime.Sub(startTime), reply.ProcessTime
 }
 
 func CloseConnectionRPC(client *rpc.Client) {
@@ -113,7 +113,7 @@ func CloseConnectionRPC(client *rpc.Client) {
 	}
 }
 
-func StartConnectionRabbitMQ() (*amqp.Connection, *amqp.Channel) {
+func StartConnectionRabbitMQ() (*amqp.Connection, *amqp.Channel, amqp.Queue, <-chan amqp.Delivery) {
 	// conecta ao broker
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	shared.ErrCheck(err, "Não foi possível se conectar ao servidor de mensageria")
@@ -122,10 +122,6 @@ func StartConnectionRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 	ch, err := conn.Channel()
 	shared.ErrCheck(err, "Não foi possível estabelecer um canal de comunicação com o servidor de mensageria")
 
-	return conn, ch
-}
-
-func SendMessageRabbitMQ(ch *amqp.Channel, rng int, calcType string) ([]int, time.Duration) {
 	// declara a fila para as respostas
 	replyQueue, err := ch.QueueDeclare(
 		shared.ResponseQueue,
@@ -148,6 +144,10 @@ func SendMessageRabbitMQ(ch *amqp.Channel, rng int, calcType string) ([]int, tim
 		nil)
 	shared.ErrCheck(err, "Falha ao registrar o servidor no broker")
 
+	return conn, ch, replyQueue, msgs
+}
+
+func SendMessageRabbitMQ(rng int, ch *amqp.Channel, replyQueue amqp.Queue, msgs <-chan amqp.Delivery, calcType string) ([]int, time.Duration, time.Duration) {
 	// prepara mensagem
 	msgRequest := shared.Request{Rng: rng, Type: calcType}
 	msgRequestBytes, err := json.Marshal(msgRequest)
@@ -183,7 +183,7 @@ func SendMessageRabbitMQ(ch *amqp.Channel, rng int, calcType string) ([]int, tim
 	// marca o tempo de fim
 	endTime := time.Now()
 
-	return reply.Result, endTime.Sub(startTime)
+	return reply.Result, endTime.Sub(startTime), reply.ProcessTime
 }
 
 func CloseConnectionRabbitMQ(conn *amqp.Connection, ch *amqp.Channel) {
