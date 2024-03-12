@@ -15,10 +15,11 @@ import (
 var gridStyle = chart.Style{StrokeWidth: 2, StrokeColor: chart.ColorBlack.WithAlpha(50)}
 
 type TestResult struct {
-	Name    string
-	Ns      []int
-	Results []float64
-	Proc    []float64
+	Name string
+	Ns   []int
+	Rtt  []float64
+	Proc []float64
+	Devi []float64
 }
 
 func Run() {
@@ -48,6 +49,8 @@ func Run() {
 	makeBarChart(tests2, "comp-tempo2")
 	makeBarChart2(tests1, "comp-envio")
 	makeBarChart2(tests2, "comp-envio2")
+	makeBarChart3(tests1, "comp-desvio")
+	makeBarChart3(tests2, "comp-desvio2")
 	makeDiffLineGraph(testsJoined[1], testsJoined[0], "diff")
 	makeDiffPercLineGraph(testsJoined[1], testsJoined[0], "diff-perc")
 }
@@ -67,6 +70,7 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 		totalProc := 0
 
 		conn := client.StartConnectionRPC()
+		var rtts []int
 
 		for k := 0; k < iterations+(2*warmUpAmount); k++ {
 			_, rtt, proc := client.SendMessageRPC(conn, n, "blk_conc")
@@ -74,6 +78,7 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 			//nao contabiliza os 10% primeiros e ultimos
 			if k > warmUpAmount || k < iterations+warmUpAmount {
 				totalRtt += int(rtt.Microseconds())
+				rtts = append(rtts, int(rtt.Microseconds()))
 				totalProc += int(proc.Microseconds())
 			}
 		}
@@ -83,10 +88,16 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 		avrgMicro := float64(totalRtt) / float64(iterations)
 		avrgProcMicro := float64(totalProc) / float64(iterations)
 
-		resRPC.Ns = append(resRPC.Ns, n)
-		resRPC.Results = append(resRPC.Results, avrgMicro)
-		resRPC.Proc = append(resRPC.Proc, avrgProcMicro)
+		var squaredDiffs int = 0
+		for _, num := range rtts {
+			diff := num - int(avrgMicro)
+			squaredDiffs += diff * diff
+		}
 
+		resRPC.Ns = append(resRPC.Ns, n)
+		resRPC.Rtt = append(resRPC.Rtt, avrgMicro)
+		resRPC.Proc = append(resRPC.Proc, avrgProcMicro)
+		resRPC.Devi = append(resRPC.Proc, math.Sqrt(float64(squaredDiffs)/float64(iterations)))
 	}
 
 	results = append(results, resRPC)
@@ -101,12 +112,16 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 		totalProc := 0
 
 		conn, ch, replyQueue, msgs := client.StartConnectionRabbitMQ()
+
+		var rtts []int
+
 		for k := 0; k < iterations+(2*warmUpAmount); k++ {
 			_, rtt, proc := client.SendMessageRabbitMQ(n, ch, replyQueue, msgs, "blk_conc")
 
 			//nao contabiliza os 10% primeiros e ultimos
 			if k > warmUpAmount || k < iterations+warmUpAmount {
 				totalRtt += int(rtt.Microseconds())
+				rtts = append(rtts, int(rtt.Microseconds()))
 				totalProc += int(proc.Microseconds())
 			}
 		}
@@ -115,9 +130,16 @@ func runTests(iterations int, names []string, nArr []int) []TestResult {
 		avrgMicro := float64(totalRtt) / float64(iterations)
 		avrgProcMicro := float64(totalProc) / float64(iterations)
 
+		var squaredDiffs int = 0
+		for _, num := range rtts {
+			diff := num - int(avrgMicro)
+			squaredDiffs += diff * diff
+		}
+
 		resRMQ.Ns = append(resRMQ.Ns, n)
-		resRMQ.Results = append(resRMQ.Results, avrgMicro)
+		resRMQ.Rtt = append(resRMQ.Rtt, avrgMicro)
 		resRMQ.Proc = append(resRMQ.Proc, avrgProcMicro)
+		resRMQ.Devi = append(resRMQ.Proc, math.Sqrt(float64(squaredDiffs)/float64(iterations)))
 	}
 
 	results = append(results, resRMQ)
@@ -135,7 +157,7 @@ func joinTests(tests1 []TestResult, tests2 []TestResult) []TestResult {
 				joinedTest.Name = test1.Name
 
 				joinedTest.Ns = append(test1.Ns, test2.Ns...)
-				joinedTest.Results = append(test1.Results, test2.Results...)
+				joinedTest.Rtt = append(test1.Rtt, test2.Rtt...)
 
 				joinedTests = append(joinedTests, joinedTest)
 			}
@@ -152,7 +174,7 @@ func makeBarChart(tests []TestResult, outputFile string) {
 	var bars []chart.Value
 
 	//para cada N
-	for i := 0; i < len(tests[0].Results); i++ {
+	for i := 0; i < len(tests[0].Rtt); i++ {
 
 		//para cada teste
 		for j, test := range tests {
@@ -162,7 +184,7 @@ func makeBarChart(tests []TestResult, outputFile string) {
 				StrokeWidth: 0,
 			}
 
-			result := test.Results[i]
+			result := test.Rtt[i]
 
 			barValue := chart.Value{Value: result, Label: addSeparator(test.Ns[i], "."), Style: sty}
 			bars = append(bars, barValue)
@@ -187,6 +209,10 @@ func makeBarChart(tests []TestResult, outputFile string) {
 	for i := int64(0); i <= 10; i++ {
 		val := float64(int(i*int64(maxDiff)) / 10)
 		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.0f", val)})
+		//pra ter linhas no começo e no final
+		if i == 10 || i == 0 {
+			yTicks = append(yTicks, chart.Tick{Value: val})
+		}
 	}
 
 	//cria o grafico
@@ -223,7 +249,7 @@ func makeBarChart2(tests []TestResult, outputFile string) {
 	var bars []chart.Value
 
 	//para cada N
-	for i := 0; i < len(tests[0].Results); i++ {
+	for i := 0; i < len(tests[0].Rtt); i++ {
 
 		//para cada teste
 		for j, test := range tests {
@@ -233,7 +259,7 @@ func makeBarChart2(tests []TestResult, outputFile string) {
 				StrokeWidth: 0,
 			}
 
-			result := (test.Results[i] / (test.Proc[i] + test.Results[i])) * 100
+			result := (test.Rtt[i] / (test.Proc[i] + test.Rtt[i])) * 100
 
 			barValue := chart.Value{Value: result, Label: addSeparator(test.Ns[i], "."), Style: sty}
 			bars = append(bars, barValue)
@@ -258,9 +284,9 @@ func makeBarChart2(tests []TestResult, outputFile string) {
 	for i := int64(0); i <= 10; i++ {
 		val := float64(int(i*int64(maxDiff)) / 10)
 		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.0f%%", val)})
+		//pra ter linhas no começo e no final
 		if i == 10 || i == 0 {
 			yTicks = append(yTicks, chart.Tick{Value: val})
-
 		}
 	}
 
@@ -291,13 +317,89 @@ func makeBarChart2(tests []TestResult, outputFile string) {
 	graph.Render(chart.PNG, file)
 }
 
+func makeBarChart3(tests []TestResult, outputFile string) {
+	var yTicks []chart.Tick
+	maxDiff := math.Inf(-1)
+
+	var bars []chart.Value
+
+	//para cada N
+	for i := 0; i < len(tests[0].Rtt); i++ {
+
+		//para cada teste
+		for j, test := range tests {
+			sty := chart.Style{
+				FillColor:   chart.DefaultColors[j],
+				StrokeColor: chart.DefaultColors[j],
+				StrokeWidth: 0,
+			}
+
+			result := test.Devi[i]
+
+			barValue := chart.Value{Value: result, Label: addSeparator(test.Ns[i], "."), Style: sty}
+			bars = append(bars, barValue)
+
+			if result > maxDiff {
+				maxDiff = result
+			}
+		}
+	}
+
+	title := "Desvio Padrão do Tempo"
+	for _, test := range tests {
+		title += " " + test.Name + ","
+	}
+
+	title = replaceLastOccurrence(title, ",", "")
+	title = replaceLastOccurrence(title, ",", " e")
+
+	maxDiff = float64(roundToNextNum(int(maxDiff), 100))
+
+	//cria 10 marcadores verticais em valores arredondados com base no maximo e minimo
+	for i := int64(0); i <= 10; i++ {
+		val := float64(int(i*int64(maxDiff)) / 10)
+		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.0f", val)})
+		//pra ter linhas no começo e no final
+		if i == 10 || i == 0 {
+			yTicks = append(yTicks, chart.Tick{Value: val})
+		}
+	}
+
+	//cria o grafico
+	graph := chart.BarChart{
+		Title:      title,
+		TitleStyle: chart.Style{FontSize: 14},
+
+		YAxis: chart.YAxis{
+			Name:      "Microsegundos",
+			Ticks:     yTicks,
+			GridLines: chart.GenerateGridLines(yTicks, gridStyle, gridStyle),
+		},
+
+		Background: chart.Style{
+			Padding: chart.Box{
+				Top: 40,
+			},
+		},
+		Height:   512,
+		BarWidth: 60,
+		Bars:     bars,
+	}
+
+	//cria o arquivo de imagem
+	file := createImageFile(outputFile)
+	defer file.Close()
+	graph.Render(chart.PNG, file)
+}
+
+
 func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 	var xTicks []chart.Tick
 	var yTicks []chart.Tick
 	var xValues []float64
 
 	//cria pontos com base an quantidade de Ns
-	for i := range subj1.Results {
+	for i := range subj1.Rtt {
 		xValues = append(xValues, float64(i))
 	}
 
@@ -307,7 +409,7 @@ func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string
 	}
 
 	//calcula as porcentagens
-	ratios := ratioArrays(subj2.Results, subj1.Results)
+	ratios := ratioArrays(subj2.Rtt, subj1.Rtt)
 
 	//calcula o valores maximo e minimo
 	max, min := findMinMax(ratios)
@@ -316,9 +418,13 @@ func makeDiffPercLineGraph(subj1 TestResult, subj2 TestResult, outputFile string
 	for i := 0; i <= 10; i++ {
 		val := min + float64(i)*((max-min)/10)
 		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.2f%%", val)})
+		//pra ter linhas no começo e no final
+		if i == 10 || i == 0 {
+			yTicks = append(yTicks, chart.Tick{Value: val})
+		}
 	}
 
-	title := "Diferença Relativa Entre " + subj1.Name + " e " + subj2.Name + " (" + subj2.Name + " - " + subj1.Name +") / "+ subj1.Name
+	title := "Diferença Relativa Entre " + subj1.Name + " e " + subj2.Name + " (" + subj2.Name + " - " + subj1.Name + ") / " + subj1.Name
 
 	//cria o grafico
 	graph := chart.Chart{
@@ -371,7 +477,7 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 	var xValues []float64
 
 	//cria pontos com base an quantidade de Ns
-	for i := range subj1.Results {
+	for i := range subj1.Rtt {
 		xValues = append(xValues, float64(i))
 	}
 
@@ -381,7 +487,7 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 	}
 
 	//substrai a diferença dos valores
-	differences := subtractArrays(subj1.Results, subj2.Results)
+	differences := subtractArrays(subj1.Rtt, subj2.Rtt)
 
 	//calcula o valores maximo e minimo
 	max, min := findMinMax(differences)
@@ -393,6 +499,10 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 	for i := 0; i <= 10; i++ {
 		val := min + float64(i)*(max-min)/10
 		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%.0f", val)})
+		//pra ter linhas no começo e no final
+		if i == 10 || i == 0 {
+			yTicks = append(yTicks, chart.Tick{Value: val})
+		}
 	}
 
 	title := "Diferença Absoluta Entre " + subj1.Name + " e " + subj2.Name
@@ -440,124 +550,6 @@ func makeDiffLineGraph(subj1 TestResult, subj2 TestResult, outputFile string) {
 	file := createImageFile(outputFile)
 	defer file.Close()
 	graph.Render(chart.PNG, file)
-}
-
-func makeGrowthLineGraph(tests []TestResult, outputFile string) {
-	var xTicks []chart.Tick
-	var yTicks []chart.Tick
-	var xValues []float64
-
-	//cria pontos com base an quantidade de Ns
-	for i := range tests[0].Results {
-		xValues = append(xValues, float64(i))
-	}
-
-	//cria os valores no eixo pra cada N
-	for j, n := range tests[0].Ns {
-		xTicks = append(xTicks, chart.Tick{Value: float64(j), Label: addSeparator(n, ".")})
-	}
-
-	//calcula as porcentagens
-	var growths [][]float64
-	var lineSeries []chart.Series
-
-	//calcula os crescimentos e cria as series do gráfico
-	for i, test := range tests {
-		growth := calculateGrowth(test.Results)
-
-		growths = append(growths, growth)
-
-		lineSeries = append(lineSeries, chart.ContinuousSeries{
-			Style: chart.Style{
-				StrokeColor: chart.DefaultColors[i],
-				StrokeWidth: 3,
-			},
-			XValues: xValues,
-			YValues: growth,
-		})
-
-		lineSeries = append(lineSeries, chart.ContinuousSeries{
-			Style: chart.Style{
-				DotColor:    chart.DefaultColors[i],
-				StrokeWidth: chart.Disabled,
-				DotWidth:    5,
-			},
-			XValues: xValues,
-			YValues: growth,
-		})
-	}
-
-	maxDiff := math.Inf(-1)
-	minDiff := math.Inf(1)
-
-	//calcula o valores maximo e minimo
-	for _, growth := range growths {
-		for _, value := range growth {
-			if value > maxDiff {
-				maxDiff = value
-			}
-			if value < minDiff {
-				minDiff = value
-			}
-		}
-	}
-
-	//cria 10 marcadores verticais em valores arredondados com base no maximo e minimo
-	for i := 0; i <= 10; i++ {
-		val := minDiff + float64(i)*((maxDiff-minDiff)/10)
-		yTicks = append(yTicks, chart.Tick{Value: val, Label: fmt.Sprintf("%d%%", roundToNextNum(int(val), 10))})
-	}
-
-	title := "Aumento de Tempo"
-	for _, test := range tests {
-		title += " " + test.Name + ","
-	}
-
-	title = replaceLastOccurrence(title, ",", "")
-	title = replaceLastOccurrence(title, ",", " e")
-
-	//cria o grafico
-	graph := chart.Chart{
-		Title:      title,
-		TitleStyle: chart.Style{FontSize: 14},
-		Background: chart.Style{
-			Padding: chart.Box{
-				Top: 40,
-			},
-		},
-		XAxis: chart.XAxis{
-			Name:  "N",
-			Ticks: xTicks,
-		},
-		YAxis: chart.YAxis{
-			Name:      "Porcentagem",
-			Ticks:     yTicks,
-			GridLines: chart.GenerateGridLines(yTicks, gridStyle, gridStyle),
-		},
-		Series: lineSeries,
-	}
-
-	//cria o arquivo de imagem
-	file := createImageFile(outputFile)
-	defer file.Close()
-	graph.Render(chart.PNG, file)
-}
-
-func calculateGrowth(data []float64) []float64 {
-	growth := make([]float64, len(data))
-	growth[0] = 0
-	previous := data[0]
-
-	for i, value := range data[1:] {
-		if previous == 0 {
-			growth[i+1] = 0
-		} else {
-			growth[i+1] = (value - previous) / previous * 100
-		}
-		previous = value
-	}
-
-	return growth
 }
 
 func roundToNextNum(value, rounder int) int {
